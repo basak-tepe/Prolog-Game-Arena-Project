@@ -1,0 +1,12 @@
+1)Familiarize yourself with the game mechanics and the provided code by reading through the files 
+main.pro, simulator.pro, agent.pro, and solution.pro.
+2)Understand the requirements for each of the predicates that you are supposed to implement. 
+Read through each of the requirements carefully and make sure you understand what is being asked.
+3)Write a plan for how you are going to implement each of the predicates. 
+Consider the inputs, outputs, and logic that each predicate will need.
+4)Begin implementing the predicates one by one, starting with the easiest one. 
+You can test each predicate as you go by loading the main.pro file and running test queries in the SWI-Prolog terminal.
+5)Once you have implemented all the predicates, 
+test your implementation thoroughly by running various scenarios using the provided scenes.
+6)If you encounter any issues, debug your code by using print statements or by running the SWI-Prolog debugger.
+7)Once you are confident that your implementation is correct, submit your code.
