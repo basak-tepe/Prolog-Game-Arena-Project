@@ -190,6 +190,25 @@ num_agents_in_state(StateId, Name, NumWarriors, NumWizards, NumRogues) :-
 
 difficulty_of_state(0, _, 0, 0).
 
+difficulty_of_state(StateId, Name, AgentClass, Difficulty) :-
+
+    num_agents_in_state(StateId, Name, NumWarriors, NumWizards, NumRogues),
+
+    (AgentClass == warrior -> 
+        Difficulty is 5 * NumWarriors + 8 * NumWizards + 2 * NumRogues
+    ;
+    AgentClass == wizard ->
+        Difficulty is 2 * NumWarriors + 5 * NumWizards + 8 * NumRogues
+    ;
+    AgentClass == rogue ->
+        Difficulty is 8 * NumWarriors + 2 * NumWizards + 5 * NumRogues
+    ).
+
+
+%PREDICATE 7
+% easiest_traversable_state(StateId, AgentId, TargetStateId).
+
+
 
 %Agent = Agents.get(_), Agent.x = X, Agent.y = Y
 %State = state(StateId, Agents, CurrentTurn, TurnOrder)
@@ -209,5 +228,5 @@ difficulty_of_state(0, _, 0, 0).
 
 
 
-% easiest_traversable_state(StateId, AgentId, TargetStateId).
+
 % basic_action_policy(StateId, AgentId, Action).
