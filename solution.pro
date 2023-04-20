@@ -100,15 +100,6 @@ nearest_agent(StateId, AgentId, NearestAgentId, Distance) :-
 %similar to 3rd predicate but we have to do 2 findalls.
 %1 to traverse all universes and 1 to traverse all states (agent lists)
 
-%Agent = Agents.get(_), Agent.x = X, Agent.y = Y
-%State = state(StateId, Agents, CurrentTurn, TurnOrder)
-%history = history(CandidateStateId, UniverseId, Time, Turn).
-%size = length(_, NumAgents).
-
-%get_universe_id(StateId, UniverseId) :- history(StateId, UniverseId, _, _).
-%get_time(StateId, Time) :- history(StateId, _, Time, _).
-%get_agents(StateId,Agents) :- state(StateId, Agents, _, _).
-
 
 evaluate_all_multiuniversal_distances(StateId, AgentId, NearestStateId, NearestAgentId, Distance) :-
     get_agents(StateId, Agents),
@@ -148,7 +139,75 @@ nearest_agent_in_multiverse(StateId, AgentId, NearestStateId, NearestAgentId, Di
 
 
 %PREDICATE 5
-% num_agents_in_state(StateId, Name, NumWarriors, NumWizards, NumRogues).
-% difficulty_of_state(StateId, Name, AgentClass, Difficulty).
+% num_agents_in_state(+StateId, +Name, -NumWarriors, -NumWizards, -NumRogues).
+
+num_agents_in_state(0, _, 0, 0, 0).
+
+num_agents_in_state(StateId, Name, NumWarriors, NumWizards, NumRogues) :-
+    get_agents(StateId,Agents),
+
+    findall(
+        Agent, 
+        (
+            Agent = Agents.get(AgentId),
+            Agent.name \= Name,    
+            Agent.class == rogue
+        ),
+        Rogues
+    ),
+
+    findall(
+        Agent, 
+        (
+            Agent = Agents.get(AgentId),
+            Agent.name \= Name,    
+            Agent.class == wizard
+        ),
+        Wizards
+    ),
+
+    findall(
+        Agent, 
+        (
+            Agent = Agents.get(AgentId),
+            Agent.name \= Name,    
+            Agent.class == warrior
+        ),
+        Warriors
+    ),
+
+    length(Rogues,NumRogues),
+    length(Warriors,NumWarriors),
+    length(Wizards,NumWizards).
+
+
+
+
+
+
+%PREDICATE 6
+% difficulty_of_state(+StateId, +Name, +AgentClass, -Difficulty).
+
+difficulty_of_state(0, _, 0, 0).
+
+
+%Agent = Agents.get(_), Agent.x = X, Agent.y = Y
+%State = state(StateId, Agents, CurrentTurn, TurnOrder)
+%history = history(CandidateStateId, UniverseId, Time, Turn).
+%size = length(_, NumAgents).
+
+%get_universe_id(StateId, UniverseId) :- history(StateId, UniverseId, _, _).
+%get_time(StateId, Time) :- history(StateId, _, Time, _).
+%get_agents(StateId,Agents) :- state(StateId, Agents, _, _).
+
+
+
+
+
+
+
+
+
+
 % easiest_traversable_state(StateId, AgentId, TargetStateId).
 % basic_action_policy(StateId, AgentId, Action).
