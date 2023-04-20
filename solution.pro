@@ -58,46 +58,45 @@ multiverse_distance(StateId, AgentId, TargetStateId, TargetAgentId, Distance) :-
 % nearest_agent(StateId, AgentId, NearestAgentId, Distance).
 %nearest agent(+StateId, +AgentId, -NearestAgentId, -Distance)
 
+evaluate_all_distances(Agents, AgentId, NearestAgentId, Distance) :-
+    %names should also be different
+    findall(
+        CurrentDistance-NextAgentId,
+        (
+            % Get the reference and next agents
+            ReferenceAgent = Agents.get(AgentId),
+            NextAgent = Agents.get(NextAgentId),
 
-evaluate_all_distances(Agents, CompareAgentId, AgentId, NearestAgentId, Distance) :-
-    dict_size(Agents,NumAgents), %returns the number of keys in dictionary.
-    CompareAgentId < NumAgents, % stop recursion when CompareAgentId exceeds number of agents
+            % Calculate the distance between the reference and next agents
+            distance(ReferenceAgent, NextAgent, CurrentDistance),
 
-    % it has to be a different agent
-    (CompareAgentId == AgentId -> NextAgentId is CompareAgentId + 1 ; NextAgentId is CompareAgentId),
-
-    % loop through the agents to find the nearest one
-    get_dict(AgentId, Agents, ReferenceAgent),
-    get_dict(NextAgentId, Agents, NextAgent),
-
-
-    distance(ReferenceAgent, NextAgent, CurrentDistance),
-    (
-        CurrentDistance < Distance ->
-            % update the nearest agent and distance if a closer one is found
-            NewDistance is CurrentDistance,
-            NewNearestAgentId is NextAgentId
-        ;   NewDistance is Distance,
-            NewNearestAgentId is NearestAgentId
+            % Make sure the next agent is not the reference agent and the names are also different
+            NextAgentId \= AgentId,
+            ReferenceAgent.name \=  NextAgent.name
+        ),
+        Distances
     ),
-    % recursively check the next agent 
-    NextAgentId is NextAgentId + 1,
-    evaluate_all_distances(Agents, NextAgentId, AgentId, NewNearestAgentId, NewDistance).
+    % Sort the distances in ascending order
+    keysort(Distances, SortedDistances),
+    % Get the nearest agent id and distance
+    SortedDistances = [NewDistance-NewNearestAgentId|_],
+    Distance is NewDistance,
+    NearestAgentId is NewNearestAgentId.
 
 
-
-nearest_agent(0,0,0,0).
+nearest_agent(0, 0, 0, 0).
 
 nearest_agent(StateId, AgentId, NearestAgentId, Distance) :-
     get_agents(StateId, Agents),
-    Distance is 1000000, % a very large number
-    evaluate_all_distances(Agents, 0, AgentId, NearestAgentId, Distance).
-    
+    evaluate_all_distances(Agents, AgentId, NearestAgentId, Distance).
 
 
 
-
+%PREDICATE 4
 % nearest_agent_in_multiverse(StateId, AgentId, TargetStateId, TargetAgentId, Distance).
+
+
+
 % num_agents_in_state(StateId, Name, NumWarriors, NumWizards, NumRogues).
 % difficulty_of_state(StateId, Name, AgentClass, Difficulty).
 % easiest_traversable_state(StateId, AgentId, TargetStateId).
