@@ -25,8 +25,11 @@ distance(Agent, TargetAgent, Distance):-
 %State = state(StateId, Agents, CurrentTurn, TurnOrder)
 %history = history(CandidateStateId, UniverseId, Time, Turn).
 %size = length(_, NumAgents).
+
+
+
 % PREDICATE 2
-% multiverse_distance(StateId, AgentId, TargetStateId, TargetAgentId, Distance).
+% multiverse_distance(+StateId, +AgentId, +TargetStateId, +TargetAgentId, -Distance).
 
 %we needed extra predicates.
 get_universe_id(StateId, UniverseId) :- history(StateId, UniverseId, _, _).
@@ -94,9 +97,57 @@ nearest_agent(StateId, AgentId, NearestAgentId, Distance) :-
 
 %PREDICATE 4
 % nearest_agent_in_multiverse(StateId, AgentId, TargetStateId, TargetAgentId, Distance).
+%similar to 3rd predicate but we have to do 2 findalls.
+%1 to traverse all universes and 1 to traverse all states (agent lists)
+
+%Agent = Agents.get(_), Agent.x = X, Agent.y = Y
+%State = state(StateId, Agents, CurrentTurn, TurnOrder)
+%history = history(CandidateStateId, UniverseId, Time, Turn).
+%size = length(_, NumAgents).
+
+%get_universe_id(StateId, UniverseId) :- history(StateId, UniverseId, _, _).
+%get_time(StateId, Time) :- history(StateId, _, Time, _).
+%get_agents(StateId,Agents) :- state(StateId, Agents, _, _).
+
+
+evaluate_all_multiuniversal_distances(StateId, AgentId, NearestStateId, NearestAgentId, Distance) :-
+    get_agents(StateId, Agents),
+
+    findall(
+        CurrentDistance-TargetAgentId-TargetStateId,
+        (
+            % Get the reference and next agents
+            ReferenceAgent = Agents.get(AgentId),
+            TargetAgent = Agents.get(TargetAgentId),
+
+            % Calculate the distance between the reference and next agents
+            % multiverse_distance(+StateId, +AgentId, +TargetStateId, +TargetAgentId, -Distance).
+            multiverse_distance(StateId, AgentId, TargetStateId,TargetAgentId, CurrentDistance),
+
+            % Make sure the next agent is not the reference agent and the names are also different
+            TargetAgentId \= AgentId,
+            ReferenceAgent.name \=  TargetAgent.name
+        ),
+        Distances
+    ),
+    % Sort the distances in ascending order
+    keysort(Distances, SortedDistances),
+    % Get the nearest agent id and distance
+    SortedDistances = [NewDistance-NewNearestAgentId-NewNearestStateId|_],
+    Distance is NewDistance,
+    NearestAgentId is NewNearestAgentId,
+    NearestStateId is NewNearestStateId.
 
 
 
+nearest_agent_in_multiverse(0, 0, 0, 0, 0).
+
+%nearest agent in multiverse(+StateId, +AgentId, -TargetStateId, -TargetAgentId, -Distance)
+nearest_agent_in_multiverse(StateId, AgentId, NearestStateId, NearestAgentId, Distance) :-
+    evaluate_all_multiuniversal_distances(StateId, AgentId, NearestStateId, NearestAgentId, Distance).
+
+
+%PREDICATE 5
 % num_agents_in_state(StateId, Name, NumWarriors, NumWizards, NumRogues).
 % difficulty_of_state(StateId, Name, AgentClass, Difficulty).
 % easiest_traversable_state(StateId, AgentId, TargetStateId).
