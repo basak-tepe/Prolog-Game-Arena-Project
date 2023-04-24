@@ -4,7 +4,6 @@
 % complete: no
 
 
-
 distance(0, 0, 0).  % a dummy predicate to make the sim work.
 
 % PREDICATE 1
@@ -206,7 +205,136 @@ difficulty_of_state(StateId, Name, AgentClass, Difficulty) :-
 
 
 %PREDICATE 7
-% easiest_traversable_state(StateId, AgentId, TargetStateId).
+% easiest_traversable_state(+StateId, +AgentId, -TargetStateId).
+
+%This predicate will return the easiest traversable state for a given agent. A state is traversable if
+%the agent can reach it by using portal or portal to now actions. The given state is assumed to be
+%traversable as well. If there are multiple states with the same difficulty, you are free to return any
+%of them. The difficulty of the easiest traversable state should be greater than zero. You will use
+%difficulty of state for sorting states by difficulty.
+
+%extra predicate 
+%find_all_universe_state_time_combinations(0,0,0,[]).
+
+%find_all_universe_state_time_combinations(UniverseId,Time,StateId,UniverseStateTimeCombinations):-
+ %   findall(
+  %      UniverseId - StateId - Time,
+   %     (
+    %        history(StateId, UniverseId, Time, _),
+     %   ),
+      %  UniverseStateTimeCombinations).
+
+
+
+%extra predicate
+
+%find_non_negative(_,_, []) :- fail.
+
+        % Check first element
+%find_non_negative(Difficulty, TargetStateId, [Difficulty-TargetStateId|_]) :-
+%            Difficulty >= 0.
+
+        % Recursively check remaining elements
+%find_non_negative(Difficulty, argetStateId, [_|T]) :-
+%        find_non_negative(Difficulty, TargetStateId, T).
+
+
+%extra predicate
+find_all_traversable_states(0, 0, []) :-!.
+find_all_traversable_states(StateId, AgentId, TraversableStates) :-
+    
+    state(StateId, Agents, CurrentTurn, TurnOrder),
+    Agent = Agents.get(AgentId),
+
+    findall(TargetStateId,
+    %a state is traversable if it can be reached by portal action.
+    (       can_perform(Agent.class, portal),
+            get_current_agent_and_state(UniverseId, AgentId, StateId),
+            history(StateId, UniverseId, Time, Turn),
+            State = state(StateId, Agents, CurrentTurn, TurnOrder),
+            Agent = Agents.get(AgentId),
+            % check whether global universe limit has been reached
+            global_universe_id(GlobalUniverseId),
+            universe_limit(UniverseLimit),
+            GlobalUniverseId < UniverseLimit,
+            % agent cannot time travel if there is only one agent in the universe
+            length(TurnOrder, NumAgents),
+            NumAgents > 1,
+            [TargetUniverseId, TargetTime] = ActionArgs,
+            % check whether target is now or in the past
+            current_time(TargetUniverseId, TargetUniCurrentTime, _),
+            TargetTime < TargetUniCurrentTime,
+            % check whether there is enough mana
+            
+            (Agent.class = wizard -> TravelCost = 2; TravelCost = 5),
+            Cost is abs(TargetTime - Time)*TravelCost + abs(TargetUniverseId - UniverseId)*TravelCost,
+            Agent.mana >= Cost,
+            % check whether the target location is occupied
+            
+            get_earliest_target_state(TargetUniverseId, TargetTime, TargetStateId),
+            state(TargetStateId, TargetAgents, _, TargetTurnOrder),
+            TargetState = state(TargetStateId, TargetAgents, _, TargetTurnOrder),
+            \+tile_occupied(Agent.x, Agent.y, TargetState)
+        );
+        %a state is traversable if it can be reached by portal to now action.
+        (   can_perform(Agent.class, portal_to_now), 
+            get_newest_state(UniverseId, StateId),
+            get_current_agent_and_state(UniverseId, AgentId, StateId),
+            history(StateId, UniverseId, Time, Turn),
+            State = state(StateId, Agents, CurrentTurn, TurnOrder),
+            Agent = Agents.get(AgentId),
+            % agent cannot time travel if there is only one agent in the universe
+            length(TurnOrder, NumAgents),
+            NumAgents > 1,
+            [TargetUniverseId] = ActionArgs,
+            % agent can only travel to now if it's the first turn in the target universe
+            current_time(TargetUniverseId, TargetTime, 0),
+            % agent cannot travel to current universe's now (would be a no-op)
+            \+(TargetUniverseId = UniverseId),
+            % check whether there is enough mana
+            (Agent.class = wizard -> TravelCost = 2; TravelCost = 5),
+            Cost is abs(TargetTime - Time)*TravelCost + abs(TargetUniverseId - UniverseId)*TravelCost,
+            Agent.mana >= Cost,
+            % check whether the target location is occupied
+            get_latest_target_state(TargetUniverseId, TargetTime, TargetStateId),
+            state(TargetStateId, TargetAgents, _, TargetTurnOrder),
+            TargetState = state(TargetStateId, TargetAgents, _, TargetTurnOrder),
+            \+tile_occupied(Agent.x, Agent.y, TargetState)
+        ),
+        TraversableStates).
+
+
+
+easiest_traversable_state(0, 0, 0).
+
+easiest_traversable_state(StateId, AgentId, TargetStateId) :- 
+        state(StateId, Agents, _, _),
+        Agent = Agents.get(AgentId),
+
+    findall(
+        Difficulty-PossibleStateId, 
+        (
+            find_all_traversable_states(StateId, AgentId, TraversableStates),
+            %bozuk
+            write(TraversableStates),
+            member(PossibleStateId,TraversableStates),
+            difficulty_of_state(PossibleStateId, Agent.name, Agent.class, Difficulty)
+        ),
+        StateDifficulties
+        ),
+
+        keysort(StateDifficulties, SortedStateDifficulties),
+        SortedStateDifficulties = [Difficulty-TargetStateId|_].
+
+    % The difficulty of the easiest traversable state should be greater than zero. 
+    %if difficulty is smaller than 0, obtain the next difficulty in the list 
+    %(Difficulty <0 -> % Base case: empty list
+    %   find_non_negative(Difficulty,TargetStateId, SortedStateDifficulties)
+    %).
+
+
+
+
 
 
 
@@ -218,13 +346,6 @@ difficulty_of_state(StateId, Name, AgentClass, Difficulty) :-
 %get_universe_id(StateId, UniverseId) :- history(StateId, UniverseId, _, _).
 %get_time(StateId, Time) :- history(StateId, _, Time, _).
 %get_agents(StateId,Agents) :- state(StateId, Agents, _, _).
-
-
-
-
-
-
-
 
 
 
