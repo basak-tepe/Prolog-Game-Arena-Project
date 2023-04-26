@@ -187,7 +187,7 @@ num_agents_in_state(StateId, Name, NumWarriors, NumWizards, NumRogues) :-
 %PREDICATE 6
 % difficulty_of_state(+StateId, +Name, +AgentClass, -Difficulty).
 
-difficulty_of_state(0, _, 0, 0).
+difficulty_of_state(0, _, 0, 0) :-!.
 
 difficulty_of_state(StateId, Name, AgentClass, Difficulty) :-
 
@@ -227,29 +227,18 @@ difficulty_of_state(StateId, Name, AgentClass, Difficulty) :-
 
 
 %extra predicate
-
-%find_non_negative(_,_, []) :- fail.
-
-        % Check first element
-%find_non_negative(Difficulty, TargetStateId, [Difficulty-TargetStateId|_]) :-
-%            Difficulty >= 0.
-
-        % Recursively check remaining elements
-%find_non_negative(Difficulty, argetStateId, [_|T]) :-
-%        find_non_negative(Difficulty, TargetStateId, T).
-
-
-%extra predicate
-find_all_traversable_states(0, 0, []) :-!.
+find_all_traversable_states(0, 0, []).
 find_all_traversable_states(StateId, AgentId, TraversableStates) :-
-    
+
     state(StateId, Agents, CurrentTurn, TurnOrder),
     Agent = Agents.get(AgentId),
 
-    findall(TargetStateId,
+    findall(PortalTargetStateId,
     %a state is traversable if it can be reached by portal action.
     (       can_perform(Agent.class, portal),
+            write('here'),
             get_current_agent_and_state(UniverseId, AgentId, StateId),
+            write('exit'),
             history(StateId, UniverseId, Time, Turn),
             State = state(StateId, Agents, CurrentTurn, TurnOrder),
             Agent = Agents.get(AgentId),
@@ -265,20 +254,20 @@ find_all_traversable_states(StateId, AgentId, TraversableStates) :-
             current_time(TargetUniverseId, TargetUniCurrentTime, _),
             TargetTime < TargetUniCurrentTime,
             % check whether there is enough mana
-            
             (Agent.class = wizard -> TravelCost = 2; TravelCost = 5),
             Cost is abs(TargetTime - Time)*TravelCost + abs(TargetUniverseId - UniverseId)*TravelCost,
             Agent.mana >= Cost,
             % check whether the target location is occupied
-            
-            get_earliest_target_state(TargetUniverseId, TargetTime, TargetStateId),
-            state(TargetStateId, TargetAgents, _, TargetTurnOrder),
-            TargetState = state(TargetStateId, TargetAgents, _, TargetTurnOrder),
+            get_earliest_target_state(TargetUniverseId, TargetTime, PortalTargetStateId),
+            state(PortalTargetStateId, TargetAgents, _, TargetTurnOrder),
+            TargetState = state(PortalTargetStateId, TargetAgents, _, TargetTurnOrder),
             \+tile_occupied(Agent.x, Agent.y, TargetState)
-        );
+        ),
+        PortalTraversableStates),
+
+        findall(PortalToNowTargetStateId,
         %a state is traversable if it can be reached by portal to now action.
         (   can_perform(Agent.class, portal_to_now), 
-            get_newest_state(UniverseId, StateId),
             get_current_agent_and_state(UniverseId, AgentId, StateId),
             history(StateId, UniverseId, Time, Turn),
             State = state(StateId, Agents, CurrentTurn, TurnOrder),
@@ -296,16 +285,20 @@ find_all_traversable_states(StateId, AgentId, TraversableStates) :-
             Cost is abs(TargetTime - Time)*TravelCost + abs(TargetUniverseId - UniverseId)*TravelCost,
             Agent.mana >= Cost,
             % check whether the target location is occupied
-            get_latest_target_state(TargetUniverseId, TargetTime, TargetStateId),
-            state(TargetStateId, TargetAgents, _, TargetTurnOrder),
-            TargetState = state(TargetStateId, TargetAgents, _, TargetTurnOrder),
+            get_latest_target_state(TargetUniverseId, TargetTime, PortalToNowTargetStateId),
+            state(PortalToNowTargetStateId, TargetAgents, _, TargetTurnOrder),
+            TargetState = state(PortalToNowTargetStateId, TargetAgents, _, TargetTurnOrder),
             \+tile_occupied(Agent.x, Agent.y, TargetState)
         ),
-        TraversableStates).
+        PortalToNowTraversableStates),
+
+        append(PortalTraversableStates, PortalToNowTraversableStates, TraversableStates),
+        write(TraversableStates).
 
 
 
-easiest_traversable_state(0, 0, 0).
+
+easiest_traversable_state(0, 0, 0):- !.
 
 easiest_traversable_state(StateId, AgentId, TargetStateId) :- 
         state(StateId, Agents, _, _),
@@ -313,24 +306,29 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
 
     findall(
         Difficulty-PossibleStateId, 
-        (
+        ((
             find_all_traversable_states(StateId, AgentId, TraversableStates),
             %bozuk
             write(TraversableStates),
             member(PossibleStateId,TraversableStates),
             difficulty_of_state(PossibleStateId, Agent.name, Agent.class, Difficulty)
-        ),
+        )),
         StateDifficulties
         ),
 
-        keysort(StateDifficulties, SortedStateDifficulties),
+        %i should also add the current state and its difficulty before sorting the list.
+        difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
+        %write(StateDifficulties),
+        %write(CurrentStateDifficulty-StateId),
+        %adding the current state and its difficulty to the list
+        FullList = [CurrentStateDifficulty-StateId | StateDifficulties],
+        %write(FullList),
+        keysort(FullList, SortedStateDifficulties),
+        write(SortedStateDifficulties),
         SortedStateDifficulties = [Difficulty-TargetStateId|_].
 
     % The difficulty of the easiest traversable state should be greater than zero. 
     %if difficulty is smaller than 0, obtain the next difficulty in the list 
-    %(Difficulty <0 -> % Base case: empty list
-    %   find_non_negative(Difficulty,TargetStateId, SortedStateDifficulties)
-    %).
 
 
 
