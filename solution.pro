@@ -57,10 +57,13 @@ multiverse_distance(StateId, AgentId, TargetStateId, TargetAgentId, Distance) :-
 
 
 %PREDICATE 3
-% nearest_agent(StateId, AgentId, NearestAgentId, Distance).
+%extra predicate
+get_first_element([K-V|_], K-V).
+
 %nearest agent(+StateId, +AgentId, -NearestAgentId, -Distance)
 
-evaluate_all_distances(Agents, AgentId, NearestAgentId, Distance) :-
+evaluate_all_distances(Agents, AgentId, NearestAgentId, ShortestDistance) :-
+    %write('here6'),
     %names should also be different
     findall(
         CurrentDistance-NextAgentId,
@@ -78,19 +81,28 @@ evaluate_all_distances(Agents, AgentId, NearestAgentId, Distance) :-
         ),
         Distances
     ),
+    %write('here7'),
     % Sort the distances in ascending order
     keysort(Distances, SortedDistances),
+    write(SortedDistances),
     % Get the nearest agent id and distance
-    SortedDistances = [NewDistance-NewNearestAgentId|_],
-    Distance is NewDistance,
-    NearestAgentId is NewNearestAgentId.
+    %SortedDistances = [Distance-NearestAgentId|_],
+    length(SortedDistances, Length),
+    (Length>0 -> get_first_element(SortedDistances, ShortestDistance-NearestAgentId); NearestAgentId = 0, ShortestDistance = 0),
+    write('we never get to here'),
+    %Distance = NewDistance,
+    %NearestAgentId = NewNearestAgentId,
+    write('here9').
 
 
 nearest_agent(0, 0, 0, 0).
 
 nearest_agent(StateId, AgentId, NearestAgentId, Distance) :-
+    %write('here3'),
     get_agents(StateId, Agents),
-    evaluate_all_distances(Agents, AgentId, NearestAgentId, Distance).
+    %write('here4'),
+    evaluate_all_distances(Agents, AgentId, NearestAgentId, Distance),
+    write('here5').
 
 
 
@@ -219,7 +231,7 @@ difficulty_of_state(StateId, Name, AgentClass, Difficulty) :-
 
 find_all_portal_traversable_states(0, 0, []).
 
-find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates) :-
+find_all_portal_traversable_states(StateId, AgentId, FullPList) :-
     state(StateId, Agents, CurrentTurn, TurnOrder),
     Agent = Agents.get(AgentId),
 
@@ -255,12 +267,16 @@ find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates) :-
             Difficulty>0
         ),
         PortalTraversableStates),
+
+        %i should also add the current state and its difficulty before sorting the list.
+        difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
+        (CurrentStateDifficulty>0 -> FullPList = [CurrentStateDifficulty-StateId | PortalTraversableStates]; FullPList = PortalTraversableStates),
         write(PortalTraversableStates).
 
 
 find_all_portal_to_now_traversable_states(0, 0, []).
 
-find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversableStates) :-
+find_all_portal_to_now_traversable_states(StateId, AgentId, FullPTNList) :-
     state(StateId, Agents, CurrentTurn, TurnOrder),
     Agent = Agents.get(AgentId),
 
@@ -293,6 +309,9 @@ find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversab
             Difficulty>0
         ),
         PortalToNowTraversableStates),
+        %i should also add the current state and its difficulty before sorting the list.
+        difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
+        (CurrentStateDifficulty>0 -> FullPTNList = [CurrentStateDifficulty-StateId | PortalToNowTraversableStates]; FullPTNList = PortalToNowTraversableStates),
         write(PortalToNowTraversableStates).
 
 
@@ -326,14 +345,9 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
         StateDifficulties
         ),
 
-        %i should also add the current state and its difficulty before sorting the list.
-        difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
-        %write(StateDifficulties),
-        %write(CurrentStateDifficulty-StateId),
-        %adding the current state and its difficulty to the list
-        FullList = [CurrentStateDifficulty-StateId | StateDifficulties],
+
         %write(FullList),
-        keysort(FullList, SortedStateDifficulties),
+        keysort(StateDifficulties, SortedStateDifficulties),
         SortedStateDifficulties = [Difficulty-TargetStateId|_].
 
 
@@ -352,32 +366,65 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
 
 
 %basic action policy(+StateId, +AgentId, -Action)
-basic_action_policy(0, 0, _).
+basic_action_policy(0, 0, _):-!.
+
 basic_action_policy(StateId, AgentId, Action) :-
+    write('here1'),
     state(StateId, Agents, _, _),
     Agent = Agents.get(AgentId),
     nearest_agent(StateId, AgentId, NearestAgentId, Distance),
+    write('here2'),
     %what does it return next to portal in outputs?
     
     %1. The agent should try to portal to the easiest traversable state if possible  (if allowed)
-    (((find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates),
+    (((find_all_portal_traversable_states(StateId, AgentId, Portalables),
+    write('here'),
     easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
-    length(PortalTraversableStates, PortalableCount),
-    PortalTraversableStates = [PortalTargetStateId|_],
+    length(Portalables, PortalableCount),
+    Portalables = [PortalTargetStateId|_],
+
+    write(Portalables),
+
     %we want the portalable state to either be the easiest or the current one
     EasiestTargetStateId =:= PortalTargetStateId,
     history(PortalTargetStateId, UniverseId, _, _),
     PortalableCount =\= 0,
     Action = [portal,UniverseId]);
 
-    (find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversableStates),
+    (find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowables),
     easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
-    length(PortalToNowTraversableStates, PortalToNowableCount),
-    PortalToNowTraversableStates = [PortalToNowTargetStateId|_],
+    length(PortalToNowables, PortalToNowableCount),
+    PortalToNowables = [PortalToNowTargetStateId|_],
+    
+    write(PortalToNowables),
+
     EasiestTargetStateId =:= PortalToNowTargetStateId,
     history(PortalToNowTargetStateId, UniverseId, _, _),
     PortalToNowableCount =\= 0,
     Action = [portal_to_now,UniverseId]));
+
+    write('got to here'),
+    %2. If it cannot travel to the easiest traversable state, it should approach to the nearest different
+    %right up left down agent until it is in the attack range of the nearest agent.
+    ((Distance > 1, Agent.class = warrior ->
+    (Agent.x < NearestAgentId.x -> Action = move_right;
+    Agent.y < NearestAgentId.y -> Action = move_up;
+    Agent.x > NearestAgentId.x -> Action = move_left;
+    Agent.y > NearestAgentId.y -> Action = move_down
+    ));
+    (Distance > 15, Agent.class = rogue ->
+    (Agent.x < NearestAgentId.x -> Action = move_right;
+    Agent.y < NearestAgentId.y -> Action = move_up;
+    Agent.x > NearestAgentId.x -> Action = move_left;
+    Agent.y > NearestAgentId.y -> Action = move_down
+    ));
+    (Distance > 10, Agent.class = wizard ->
+    (Agent.x < NearestAgentId.x -> Action = move_right;
+    Agent.y < NearestAgentId.y -> Action = move_up;
+    Agent.x > NearestAgentId.x -> Action = move_left;
+    Agent.y > NearestAgentId.y -> Action = move_down
+    )));
+
 
     %3. Once the agent is in the attack range of the nearest agent, it should attack the nearest agent.
     (Distance =< 1, Agent.class = warrior -> Action = [melee_attack, NearestAgentId];
@@ -385,13 +432,6 @@ basic_action_policy(StateId, AgentId, Action) :-
     Distance =< 10, Agent.class = wizard -> Action = [magic_missile,  NearestAgentId]);
 
 
-    %2. If it cannot travel to the easiest traversable state, it should approach to the nearest different
-    %right up left down agent until it is in the attack range of the nearest agent.
-    (Agent.x < NearestAgentId.x -> Action = move_right;
-    Agent.y < NearestAgentId.y -> Action = move_up;
-    Agent.x > NearestAgentId.x -> Action = move_left;
-    Agent.y > NearestAgentId.y -> Action = move_down
-    );
 
 
     %4. If the agent cannot execute the above actions, it should rest.
