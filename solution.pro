@@ -1,6 +1,6 @@
 % basak tepe
 % 2020400117
-% compiling: no
+% compiling: yes
 % complete: no
 
 
@@ -213,17 +213,6 @@ difficulty_of_state(StateId, Name, AgentClass, Difficulty) :-
 %of them. The difficulty of the easiest traversable state should be greater than zero. You will use
 %difficulty of state for sorting states by difficulty.
 
-%extra predicate 
-%find_all_universe_state_time_combinations(0,0,0,[]).
-
-%find_all_universe_state_time_combinations(UniverseId,Time,StateId,UniverseStateTimeCombinations):-
- %   findall(
-  %      UniverseId - StateId - Time,
-   %     (
-    %        history(StateId, UniverseId, Time, _),
-     %   ),
-      %  UniverseStateTimeCombinations).
-
 
 
 %extra predicate
@@ -235,13 +224,13 @@ find_all_traversable_states(StateId, AgentId, TraversableStates) :-
 
     findall(PortalTargetStateId,
     %a state is traversable if it can be reached by portal action.
-    (       can_perform(Agent.class, portal),
+    (       % can_perform(Agent.class, portal),
             write('here'),
-            get_current_agent_and_state(UniverseId, AgentId, StateId),
+            % get_current_agent_and_state(UniverseId, AgentId, StateId), % bu kalksa da olur
             write('exit'),
             history(StateId, UniverseId, Time, Turn),
             State = state(StateId, Agents, CurrentTurn, TurnOrder),
-            Agent = Agents.get(AgentId),
+            % Agent = Agents.get(AgentId),
             % check whether global universe limit has been reached
             global_universe_id(GlobalUniverseId),
             universe_limit(UniverseLimit),
@@ -249,7 +238,8 @@ find_all_traversable_states(StateId, AgentId, TraversableStates) :-
             % agent cannot time travel if there is only one agent in the universe
             length(TurnOrder, NumAgents),
             NumAgents > 1,
-            [TargetUniverseId, TargetTime] = ActionArgs,
+            % [TargetUniverseId, TargetTime] = ActionArgs,
+            history(_, TargetUniverseId, TargetTime, _),
             % check whether target is now or in the past
             current_time(TargetUniverseId, TargetUniCurrentTime, _),
             TargetTime < TargetUniCurrentTime,
@@ -264,18 +254,17 @@ find_all_traversable_states(StateId, AgentId, TraversableStates) :-
             \+tile_occupied(Agent.x, Agent.y, TargetState)
         ),
         PortalTraversableStates),
-
         findall(PortalToNowTargetStateId,
         %a state is traversable if it can be reached by portal to now action.
         (   can_perform(Agent.class, portal_to_now), 
-            get_current_agent_and_state(UniverseId, AgentId, StateId),
+            % get_current_agent_and_state(UniverseId, AgentId, StateId),
             history(StateId, UniverseId, Time, Turn),
             State = state(StateId, Agents, CurrentTurn, TurnOrder),
             Agent = Agents.get(AgentId),
             % agent cannot time travel if there is only one agent in the universe
             length(TurnOrder, NumAgents),
             NumAgents > 1,
-            [TargetUniverseId] = ActionArgs,
+            % [TargetUniverseId] = ActionArgs,
             % agent can only travel to now if it's the first turn in the target universe
             current_time(TargetUniverseId, TargetTime, 0),
             % agent cannot travel to current universe's now (would be a no-op)
@@ -311,7 +300,9 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
             %bozuk
             write(TraversableStates),
             member(PossibleStateId,TraversableStates),
-            difficulty_of_state(PossibleStateId, Agent.name, Agent.class, Difficulty)
+            difficulty_of_state(PossibleStateId, Agent.name, Agent.class, Difficulty),
+            % The difficulty of the easiest traversable state should be greater than zero. 
+            Difficulty>0
         )),
         StateDifficulties
         ),
@@ -327,14 +318,6 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
         write(SortedStateDifficulties),
         SortedStateDifficulties = [Difficulty-TargetStateId|_].
 
-    % The difficulty of the easiest traversable state should be greater than zero. 
-    %if difficulty is smaller than 0, obtain the next difficulty in the list 
-
-
-
-
-
-
 
 %Agent = Agents.get(_), Agent.x = X, Agent.y = Y
 %State = state(StateId, Agents, CurrentTurn, TurnOrder)
@@ -346,6 +329,14 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
 %get_agents(StateId,Agents) :- state(StateId, Agents, _, _).
 
 
-
+%PREDICATE 8
+basic_action_policy(0, 0, _).
 
 % basic_action_policy(StateId, AgentId, Action).
+
+%1. The agent should try to portal to the easiest traversable state if possible (i.e., if the
+%game rules allow: the agent’s mana, whether the tile is occupied or not, etc).
+%2. If it cannot travel to the easiest traversable state, it should approach to the nearest different
+%agent (i.e., agent with a different name) until it is in the attack range of the nearest agent.
+%3. Once the agent is in the attack range of the nearest agent, it should attack the nearest agent.
+%4. If the agent cannot execute the above actions, it should rest.
