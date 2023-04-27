@@ -215,21 +215,19 @@ difficulty_of_state(StateId, Name, AgentClass, Difficulty) :-
 
 
 
-%extra predicate
-find_all_traversable_states(0, 0, []).
-find_all_traversable_states(StateId, AgentId, TraversableStates) :-
+%extra predicates
 
+find_all_portal_traversable_states(0, 0, []).
+
+find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates) :-
     state(StateId, Agents, CurrentTurn, TurnOrder),
     Agent = Agents.get(AgentId),
 
     findall(PortalTargetStateId,
     %a state is traversable if it can be reached by portal action.
     (       % can_perform(Agent.class, portal),
-            write('here'),
-            % get_current_agent_and_state(UniverseId, AgentId, StateId), % bu kalksa da olur
-            write('exit'),
-            history(StateId, UniverseId, Time, Turn),
-            State = state(StateId, Agents, CurrentTurn, TurnOrder),
+            history(StateId, UniverseId, Time, _),
+            state(StateId, Agents, CurrentTurn, TurnOrder),
             % Agent = Agents.get(AgentId),
             % check whether global universe limit has been reached
             global_universe_id(GlobalUniverseId),
@@ -251,15 +249,27 @@ find_all_traversable_states(StateId, AgentId, TraversableStates) :-
             get_earliest_target_state(TargetUniverseId, TargetTime, PortalTargetStateId),
             state(PortalTargetStateId, TargetAgents, _, TargetTurnOrder),
             TargetState = state(PortalTargetStateId, TargetAgents, _, TargetTurnOrder),
-            \+tile_occupied(Agent.x, Agent.y, TargetState)
+            \+tile_occupied(Agent.x, Agent.y, TargetState),
+            difficulty_of_state(PortalTargetStateId, Agent.name, Agent.class, Difficulty),
+            % The difficulty of the easiest traversable state should be greater than zero. 
+            Difficulty>0
         ),
         PortalTraversableStates),
-        findall(PortalToNowTargetStateId,
+        write(PortalTraversableStates).
+
+
+find_all_portal_to_now_traversable_states(0, 0, []).
+
+find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversableStates) :-
+    state(StateId, Agents, CurrentTurn, TurnOrder),
+    Agent = Agents.get(AgentId),
+
+    findall(PortalToNowTargetStateId,
         %a state is traversable if it can be reached by portal to now action.
         (   can_perform(Agent.class, portal_to_now), 
             % get_current_agent_and_state(UniverseId, AgentId, StateId),
-            history(StateId, UniverseId, Time, Turn),
-            State = state(StateId, Agents, CurrentTurn, TurnOrder),
+            history(StateId, UniverseId, Time, _),
+            state(StateId, Agents, CurrentTurn, TurnOrder),
             Agent = Agents.get(AgentId),
             % agent cannot time travel if there is only one agent in the universe
             length(TurnOrder, NumAgents),
@@ -277,12 +287,23 @@ find_all_traversable_states(StateId, AgentId, TraversableStates) :-
             get_latest_target_state(TargetUniverseId, TargetTime, PortalToNowTargetStateId),
             state(PortalToNowTargetStateId, TargetAgents, _, TargetTurnOrder),
             TargetState = state(PortalToNowTargetStateId, TargetAgents, _, TargetTurnOrder),
-            \+tile_occupied(Agent.x, Agent.y, TargetState)
+            \+tile_occupied(Agent.x, Agent.y, TargetState),
+            difficulty_of_state(PortalToNowTargetStateId, Agent.name, Agent.class, Difficulty),
+            % The difficulty of the easiest traversable state should be greater than zero. 
+            Difficulty>0
         ),
         PortalToNowTraversableStates),
+        write(PortalToNowTraversableStates).
 
-        append(PortalTraversableStates, PortalToNowTraversableStates, TraversableStates),
-        write(TraversableStates).
+
+find_all_traversable_states(0, 0, []).
+
+find_all_traversable_states(StateId, AgentId, TraversableStates) :-
+
+        find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates),
+        find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversableStates),
+    
+        append(PortalTraversableStates, PortalToNowTraversableStates, TraversableStates).
 
 
 
@@ -297,12 +318,10 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
         Difficulty-PossibleStateId, 
         ((
             find_all_traversable_states(StateId, AgentId, TraversableStates),
-            %bozuk
-            write(TraversableStates),
             member(PossibleStateId,TraversableStates),
             difficulty_of_state(PossibleStateId, Agent.name, Agent.class, Difficulty),
             % The difficulty of the easiest traversable state should be greater than zero. 
-            Difficulty>0
+            Difficulty > 0
         )),
         StateDifficulties
         ),
@@ -315,7 +334,6 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
         FullList = [CurrentStateDifficulty-StateId | StateDifficulties],
         %write(FullList),
         keysort(FullList, SortedStateDifficulties),
-        write(SortedStateDifficulties),
         SortedStateDifficulties = [Difficulty-TargetStateId|_].
 
 
@@ -330,13 +348,51 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
 
 
 %PREDICATE 8
+%extra predicate
+
+
+%basic action policy(+StateId, +AgentId, -Action)
 basic_action_policy(0, 0, _).
+basic_action_policy(StateId, AgentId, Action) :-
+    state(StateId, Agents, _, _),
+    Agent = Agents.get(AgentId),
+    nearest_agent(StateId, AgentId, NearestAgentId, Distance),
+    %what does it return next to portal in outputs?
+    
+    %1. The agent should try to portal to the easiest traversable state if possible  (if allowed)
+    (((find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates),
+    easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
+    length(PortalTraversableStates, PortalableCount),
+    PortalTraversableStates = [PortalTargetStateId|_],
+    %we want the portalable state to either be the easiest or the current one
+    EasiestTargetStateId =:= PortalTargetStateId,
+    history(PortalTargetStateId, UniverseId, _, _),
+    PortalableCount =\= 0,
+    Action = [portal,UniverseId]);
 
-% basic_action_policy(StateId, AgentId, Action).
+    (find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversableStates),
+    easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
+    length(PortalToNowTraversableStates, PortalToNowableCount),
+    PortalToNowTraversableStates = [PortalToNowTargetStateId|_],
+    EasiestTargetStateId =:= PortalToNowTargetStateId,
+    history(PortalToNowTargetStateId, UniverseId, _, _),
+    PortalToNowableCount =\= 0,
+    Action = [portal_to_now,UniverseId]));
 
-%1. The agent should try to portal to the easiest traversable state if possible (i.e., if the
-%game rules allow: the agent’s mana, whether the tile is occupied or not, etc).
-%2. If it cannot travel to the easiest traversable state, it should approach to the nearest different
-%agent (i.e., agent with a different name) until it is in the attack range of the nearest agent.
-%3. Once the agent is in the attack range of the nearest agent, it should attack the nearest agent.
-%4. If the agent cannot execute the above actions, it should rest.
+    %3. Once the agent is in the attack range of the nearest agent, it should attack the nearest agent.
+    (Distance =< 1, Agent.class = warrior -> Action = [melee_attack, NearestAgentId];
+    Distance =< 15, Agent.class = rogue -> Action = [ranged_attack, NearestAgentId];
+    Distance =< 10, Agent.class = wizard -> Action = [magic_missile,  NearestAgentId]);
+
+
+    %2. If it cannot travel to the easiest traversable state, it should approach to the nearest different
+    %right up left down agent until it is in the attack range of the nearest agent.
+    (Agent.x < NearestAgentId.x -> Action = move_right;
+    Agent.y < NearestAgentId.y -> Action = move_up;
+    Agent.x > NearestAgentId.x -> Action = move_left;
+    Agent.y > NearestAgentId.y -> Action = move_down
+    );
+
+
+    %4. If the agent cannot execute the above actions, it should rest.
+    (Action = rest)).
