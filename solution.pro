@@ -1,30 +1,16 @@
 % basak tepe
 % 2020400117
 % compiling: yes
-% complete: no
+% complete: yes
 
 
 distance(0, 0, 0).  % a dummy predicate to make the sim work.
 
 % PREDICATE 1
-%distance(Agent, TargetAgent, Distance).
+%distance(+Agent, +TargetAgent, -Distance).
 
 distance(Agent, TargetAgent, Distance):-
     Distance is abs( Agent.x - TargetAgent.x) + abs(Agent.y - TargetAgent.y).
-
-
-
-%another method with intermediate values
-%DiffX is abs(X1 - X2),
-%DiffY is abs(Y1 - Y2),
-%Distance is DiffX + DiffY
-
-
-%Agent = Agents.get(_), Agent.x = X, Agent.y = Y
-%State = state(StateId, Agents, CurrentTurn, TurnOrder)
-%history = history(CandidateStateId, UniverseId, Time, Turn).
-%size = length(_, NumAgents).
-
 
 
 % PREDICATE 2
@@ -63,8 +49,6 @@ get_first_element([K-V|_], K-V).
 %nearest agent(+StateId, +AgentId, -NearestAgentId, -Distance)
 
 evaluate_all_distances(Agents, AgentId, NearestAgentId, ShortestDistance) :-
-    %write('here6'),
-    %names should also be different
     findall(
         CurrentDistance-NextAgentId,
         (
@@ -81,12 +65,9 @@ evaluate_all_distances(Agents, AgentId, NearestAgentId, ShortestDistance) :-
         ),
         Distances
     ),
-    %write('here7'),
     % Sort the distances in ascending order
     keysort(Distances, SortedDistances),
-    %write(SortedDistances),
     % Get the nearest agent id and distance
-    %SortedDistances = [Distance-NearestAgentId|_],
     length(SortedDistances, Length),
     (Length>0 -> get_first_element(SortedDistances, ShortestDistance-NearestAgentId); NearestAgentId = 0, ShortestDistance = 0).
 
@@ -97,6 +78,7 @@ nearest_agent(StateId, AgentId, NearestAgentId, Distance) :-
     state(StateId, Agents, _, TurnOrder),
     length(TurnOrder, NumAgents),
 
+    %agent is alone, there is no nearest agent.
     (NumAgents =< 1 -> 
         NearestAgentId = -999,
         Distance = -999
@@ -147,7 +129,9 @@ nearest_agent_in_multiverse(0, 0, 0, 0, 0).
 
 %nearest agent in multiverse(+StateId, +AgentId, -TargetStateId, -TargetAgentId, -Distance)
 nearest_agent_in_multiverse(StateId, AgentId, NearestStateId, NearestAgentId, Distance) :-
+    %i did not consider a case where there is only 1 agent in the multiverse, it might be possible but the game would not make sense.
     evaluate_all_multiuniversal_distances(StateId, AgentId, NearestStateId, NearestAgentId, Distance).
+
 
 
 %PREDICATE 5
@@ -196,7 +180,6 @@ num_agents_in_state(StateId, Name, NumWarriors, NumWizards, NumRogues) :-
 
 
 
-
 %PREDICATE 6
 % difficulty_of_state(+StateId, +Name, +AgentClass, -Difficulty).
 
@@ -220,16 +203,9 @@ difficulty_of_state(StateId, Name, AgentClass, Difficulty) :-
 %PREDICATE 7
 % easiest_traversable_state(+StateId, +AgentId, -TargetStateId).
 
-%This predicate will return the easiest traversable state for a given agent. A state is traversable if
-%the agent can reach it by using portal or portal to now actions. The given state is assumed to be
-%traversable as well. If there are multiple states with the same difficulty, you are free to return any
-%of them. The difficulty of the easiest traversable state should be greater than zero. You will use
-%difficulty of state for sorting states by difficulty.
-
 
 
 %extra predicates
-
 find_all_portal_traversable_states(0, 0, []).
 
 find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates) :-
@@ -238,7 +214,7 @@ find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates) :-
 
     findall(PortalTargetStateId,
     %a state is traversable if it can be reached by portal action.
-    (       % can_perform(Agent.class, portal),
+    (       can_perform(Agent.class, portal),
             history(StateId, UniverseId, Time, _),
             state(StateId, Agents, CurrentTurn, TurnOrder),
             % Agent = Agents.get(AgentId),
@@ -249,7 +225,6 @@ find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates) :-
             % agent cannot time travel if there is only one agent in the universe
             length(TurnOrder, NumAgents),
             NumAgents > 1,
-            % [TargetUniverseId, TargetTime] = ActionArgs,
             history(_, TargetUniverseId, TargetTime, _),
             % check whether target is now or in the past
             current_time(TargetUniverseId, TargetUniCurrentTime, _),
@@ -269,10 +244,6 @@ find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates) :-
         ),
         PortalTraversableStates).
 
-        %i should also add the current state and its difficulty before sorting the list.
-        %difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
-        %(CurrentStateDifficulty>0 -> FullPList = [CurrentStateDifficulty-StateId | PortalTraversableStates]; FullPList = PortalTraversableStates),
-        %write(PortalTraversableStates).
 
 
 find_all_portal_to_now_traversable_states(0, 0, []).
@@ -291,7 +262,6 @@ find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversab
             % agent cannot time travel if there is only one agent in the universe
             length(TurnOrder, NumAgents),
             NumAgents > 1,
-            % [TargetUniverseId] = ActionArgs,
             % agent can only travel to now if it's the first turn in the target universe
             current_time(TargetUniverseId, TargetTime, 0),
             % agent cannot travel to current universe's now (would be a no-op)
@@ -310,10 +280,6 @@ find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversab
             Difficulty>0
         ),
         PortalToNowTraversableStates).
-        %i should also add the current state and its difficulty before sorting the list.
-        %difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
-        %(CurrentStateDifficulty>0 -> FullPTNList = [CurrentStateDifficulty-StateId | PortalToNowTraversableStates]; FullPTNList = PortalToNowTraversableStates),
-        %write(PortalToNowTraversableStates).
 
 
 find_all_traversable_states(0, 0, []).
@@ -322,13 +288,15 @@ find_all_traversable_states(StateId, AgentId, TraversableStates) :-
         state(StateId, Agents, _, _),
         Agent = Agents.get(AgentId),
 
+        %find all states that can be performed portal or portal-to-now 
         find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates),
         find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversableStates),
+        %merge these lists
         append(PortalTraversableStates, PortalToNowTraversableStates, TraversableStatesWithoutCurrent),
-        %write(TraversableStatesWithoutCurrent),
+        %current state is also traversable, we add the current state to the list
         difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
         (CurrentStateDifficulty>0 -> TraversableStates = [StateId | TraversableStatesWithoutCurrent]; TraversableStates = TraversableStatesWithoutCurrent).
-        %write(TraversableStates).
+        
 
 
 
@@ -341,6 +309,7 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
     findall(
         Difficulty-PossibleStateId, 
         ((
+            %calculate difficulty and make a pairwise list for each traversable state id
             find_all_traversable_states(StateId, AgentId, TraversableStates),
             member(PossibleStateId,TraversableStates),
             difficulty_of_state(PossibleStateId, Agent.name, Agent.class, Difficulty),
@@ -350,25 +319,11 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
         StateDifficulties
         ),
 
-
-        %write(FullList),
         keysort(StateDifficulties, SortedStateDifficulties),
         SortedStateDifficulties = [Difficulty-TargetStateId|_].
 
 
-%Agent = Agents.get(_), Agent.x = X, Agent.y = Y
-%State = state(StateId, Agents, CurrentTurn, TurnOrder)
-%history = history(CandidateStateId, UniverseId, Time, Turn).
-%size = length(_, NumAgents).
-
-%get_universe_id(StateId, UniverseId) :- history(StateId, UniverseId, _, _).
-%get_time(StateId, Time) :- history(StateId, _, Time, _).
-%get_agents(StateId,Agents) :- state(StateId, Agents, _, _).
-
-
 %PREDICATE 8
-%extra predicate
-
 
 %basic action policy(+StateId, +AgentId, -Action)
 basic_action_policy(0, 0, _):-!.
@@ -379,39 +334,39 @@ basic_action_policy(StateId, AgentId, Action) :-
     Agent = Agents.get(AgentId),
     nearest_agent(StateId, AgentId, NearestAgentId, Distance),
 
-    %what does it return next to portal in outputs?
+    
     
     %1. The agent should try to portal to the easiest traversable state if possible  (if allowed)
-    (((find_all_portal_traversable_states(StateId, AgentId, Portalables),
+    ((( 
+        find_all_portal_traversable_states(StateId, AgentId, Portalables),
         easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
         length(Portalables, PortalableCount),
+        %list should not be empty
         PortalableCount =\= 0,
 
-    %we want the portalable state to either be the easiest one
+        %we want to portal to the easiest traversable state, i.e easiest state should be among portalable states
         member(EasiestTargetStateId,Portalables),
 
-    %write(Portalables),
-
         history(EasiestTargetStateId, UniverseId, _, _),
-    
         Action = [portal,UniverseId]);
 
-    (find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowables),
+    (   
+        find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowables),
         easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
         length(PortalToNowables, PortalToNowableCount),
+        list should not be empty
         PortalToNowableCount =\= 0,
         
-        %write(PortalToNowables),
 
+        %we want to portal to now to the easiest traversable state, i.e easiest state should be among portaltonowable states
         member(EasiestTargetStateId,PortalToNowables),
 
         history(EasiestTargetStateId, UniverseId, _, _),
-        
         Action = [portal_to_now,UniverseId]));
 
-    %4. If the agent cannot execute the above actions, it should rest.
+    %4. Resting is the last option, however if there is no nearest agent, the agent cannot perform attack or move so it should rest.
+    %-999 corrresponds to the dummy agent id we return from nearest_agent when the agent is alone in the state.
     (NearestAgentId =:= -999 -> 
-    %write('THE AGENT SHOULD REST'),
     Action = [rest]);
 
 
@@ -420,21 +375,18 @@ basic_action_policy(StateId, AgentId, Action) :-
     %there has to be a nearest agent to do so.
 
     (((Distance> 1, Agent.class = warrior ->
-    write('got to warrior'),
     (Agent.x <  Agents.get(NearestAgentId).x -> Action = [move_right];
     Agent.y <  Agents.get(NearestAgentId).y -> Action = [move_up];
     Agent.x >  Agents.get(NearestAgentId).x -> Action = [move_left];
     Agent.y >  Agents.get(NearestAgentId).y -> Action = [move_down]
     ));
     (Distance> 5, Agent.class = rogue ->
-    write('got to rogue'),
     (Agent.x <  Agents.get(NearestAgentId).x -> Action = [move_right];
     Agent.y <  Agents.get(NearestAgentId).y -> Action = [move_up];
     Agent.x >  Agents.get(NearestAgentId).x -> Action = [move_left];
     Agent.y >  Agents.get(NearestAgentId).y -> Action = [move_down]
     ));
     (Distance> 10,  Agent.class = wizard ->
-    write('got to wizard'),
     (Agent.x <  Agents.get(NearestAgentId).x -> Action = [move_right];
     Agent.y <  Agents.get(NearestAgentId).y -> Action = [move_up];
     Agent.x >  Agents.get(NearestAgentId).x -> Action = [move_left];
