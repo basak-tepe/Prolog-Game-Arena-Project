@@ -231,7 +231,7 @@ difficulty_of_state(StateId, Name, AgentClass, Difficulty) :-
 
 find_all_portal_traversable_states(0, 0, []).
 
-find_all_portal_traversable_states(StateId, AgentId, FullPList) :-
+find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates) :-
     state(StateId, Agents, CurrentTurn, TurnOrder),
     Agent = Agents.get(AgentId),
 
@@ -266,17 +266,17 @@ find_all_portal_traversable_states(StateId, AgentId, FullPList) :-
             % The difficulty of the easiest traversable state should be greater than zero. 
             Difficulty>0
         ),
-        PortalTraversableStates),
+        PortalTraversableStates).
 
         %i should also add the current state and its difficulty before sorting the list.
-        difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
-        (CurrentStateDifficulty>0 -> FullPList = [CurrentStateDifficulty-StateId | PortalTraversableStates]; FullPList = PortalTraversableStates),
-        write(PortalTraversableStates).
+        %difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
+        %(CurrentStateDifficulty>0 -> FullPList = [CurrentStateDifficulty-StateId | PortalTraversableStates]; FullPList = PortalTraversableStates),
+        %write(PortalTraversableStates).
 
 
 find_all_portal_to_now_traversable_states(0, 0, []).
 
-find_all_portal_to_now_traversable_states(StateId, AgentId, FullPTNList) :-
+find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversableStates) :-
     state(StateId, Agents, CurrentTurn, TurnOrder),
     Agent = Agents.get(AgentId),
 
@@ -308,22 +308,26 @@ find_all_portal_to_now_traversable_states(StateId, AgentId, FullPTNList) :-
             % The difficulty of the easiest traversable state should be greater than zero. 
             Difficulty>0
         ),
-        PortalToNowTraversableStates),
+        PortalToNowTraversableStates).
         %i should also add the current state and its difficulty before sorting the list.
-        difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
-        (CurrentStateDifficulty>0 -> FullPTNList = [CurrentStateDifficulty-StateId | PortalToNowTraversableStates]; FullPTNList = PortalToNowTraversableStates),
-        write(PortalToNowTraversableStates).
+        %difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
+        %(CurrentStateDifficulty>0 -> FullPTNList = [CurrentStateDifficulty-StateId | PortalToNowTraversableStates]; FullPTNList = PortalToNowTraversableStates),
+        %write(PortalToNowTraversableStates).
 
 
 find_all_traversable_states(0, 0, []).
 
 find_all_traversable_states(StateId, AgentId, TraversableStates) :-
+        state(StateId, Agents, _, _),
+        Agent = Agents.get(AgentId),
 
         find_all_portal_traversable_states(StateId, AgentId, PortalTraversableStates),
         find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowTraversableStates),
-    
-        append(PortalTraversableStates, PortalToNowTraversableStates, TraversableStates).
-
+        append(PortalTraversableStates, PortalToNowTraversableStates, TraversableStatesWithoutCurrent),
+        %write(TraversableStatesWithoutCurrent),
+        difficulty_of_state(StateId, Agent.name, Agent.class, CurrentStateDifficulty),
+        (CurrentStateDifficulty>0 -> TraversableStates = [StateId | TraversableStatesWithoutCurrent]; TraversableStates = TraversableStatesWithoutCurrent).
+        %write(TraversableStates).
 
 
 
@@ -369,70 +373,75 @@ easiest_traversable_state(StateId, AgentId, TargetStateId) :-
 basic_action_policy(0, 0, _):-!.
 
 basic_action_policy(StateId, AgentId, Action) :-
-    write('here1'),
+
     state(StateId, Agents, _, _),
     Agent = Agents.get(AgentId),
     nearest_agent(StateId, AgentId, NearestAgentId, Distance),
-    write('here2'),
+    NearestAgent = Agents.get(NearestAgentId),
+
     %what does it return next to portal in outputs?
     
     %1. The agent should try to portal to the easiest traversable state if possible  (if allowed)
     (((find_all_portal_traversable_states(StateId, AgentId, Portalables),
-    write('here'),
+
     easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
     length(Portalables, PortalableCount),
-    Portalables = [PortalTargetStateId|_],
+    PortalableCount =\= 0,
+
+    %we want the portalable state to either be the easiest one
+    member(EasiestTargetStateId,Portalables),
 
     write(Portalables),
 
-    %we want the portalable state to either be the easiest or the current one
-    EasiestTargetStateId =:= PortalTargetStateId,
-    history(PortalTargetStateId, UniverseId, _, _),
-    PortalableCount =\= 0,
+    history(EasiestTargetStateId, UniverseId, _, _),
+    
     Action = [portal,UniverseId]);
 
     (find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowables),
     easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
     length(PortalToNowables, PortalToNowableCount),
-    PortalToNowables = [PortalToNowTargetStateId|_],
+    PortalToNowableCount =\= 0,
     
     write(PortalToNowables),
 
-    EasiestTargetStateId =:= PortalToNowTargetStateId,
-    history(PortalToNowTargetStateId, UniverseId, _, _),
-    PortalToNowableCount =\= 0,
+    member(EasiestTargetStateId,PortalToNowables),
+
+    history(EasiestTargetStateId, UniverseId, _, _),
+    
     Action = [portal_to_now,UniverseId]));
 
-    write('got to here'),
+    
     %2. If it cannot travel to the easiest traversable state, it should approach to the nearest different
     %right up left down agent until it is in the attack range of the nearest agent.
-    ((Distance > 1, Agent.class = warrior ->
-    (Agent.x < NearestAgentId.x -> Action = move_right;
-    Agent.y < NearestAgentId.y -> Action = move_up;
-    Agent.x > NearestAgentId.x -> Action = move_left;
-    Agent.y > NearestAgentId.y -> Action = move_down
+    %manhattan distance no longer applies to compute attack ranges. 
+
+    ((Distance> 1, Agent.class = warrior ->
+    write('got to warrior'),
+    (Agent.x < NearestAgent.x -> Action = [move_right];
+    Agent.y < NearestAgent.y -> Action = [move_up];
+    Agent.x > NearestAgent.x -> Action = [move_left];
+    Agent.y > NearestAgent.y -> Action = [move_down]
     ));
-    (Distance > 15, Agent.class = rogue ->
-    (Agent.x < NearestAgentId.x -> Action = move_right;
-    Agent.y < NearestAgentId.y -> Action = move_up;
-    Agent.x > NearestAgentId.x -> Action = move_left;
-    Agent.y > NearestAgentId.y -> Action = move_down
+    (Distance> 15, Agent.class = rogue ->
+    write('got to rogue'),
+    (Agent.x < NearestAgent.x -> Action = [move_right];
+    Agent.y < NearestAgent.y -> Action = [move_up];
+    Agent.x > NearestAgent.x -> Action = [move_left];
+    Agent.y > NearestAgent.y -> Action = [move_down]
     ));
-    (Distance > 10, Agent.class = wizard ->
-    (Agent.x < NearestAgentId.x -> Action = move_right;
-    Agent.y < NearestAgentId.y -> Action = move_up;
-    Agent.x > NearestAgentId.x -> Action = move_left;
-    Agent.y > NearestAgentId.y -> Action = move_down
+    (Distance> 10,  Agent.class = wizard ->
+    write('got to wizard'),
+    (Agent.x < NearestAgent.x -> Action = [move_right];
+    Agent.y < NearestAgent.y -> Action = [move_up];
+    Agent.x > NearestAgent.x -> Action = [move_left];
+    Agent.y > NearestAgent.y -> Action = [move_down]
     )));
 
 
     %3. Once the agent is in the attack range of the nearest agent, it should attack the nearest agent.
-    (Distance =< 1, Agent.class = warrior -> Action = [melee_attack, NearestAgentId];
-    Distance =< 15, Agent.class = rogue -> Action = [ranged_attack, NearestAgentId];
-    Distance =< 10, Agent.class = wizard -> Action = [magic_missile,  NearestAgentId]);
-
-
-
+    ((Distance=<1, Agent.class = warrior-> Action = [melee_attack, NearestAgentId]);
+    (Distance=<15,  Agent.class = rogue -> Action = [ranged_attack, NearestAgentId]);
+    (Distance=<10, Agent.class = wizard -> Action = [magic_missile,  NearestAgentId]));
 
     %4. If the agent cannot execute the above actions, it should rest.
-    (Action = rest)).
+    Action = [rest]).
