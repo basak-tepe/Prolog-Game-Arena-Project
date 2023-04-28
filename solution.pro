@@ -84,7 +84,7 @@ evaluate_all_distances(Agents, AgentId, NearestAgentId, ShortestDistance) :-
     %write('here7'),
     % Sort the distances in ascending order
     keysort(Distances, SortedDistances),
-    write(SortedDistances),
+    %write(SortedDistances),
     % Get the nearest agent id and distance
     %SortedDistances = [Distance-NearestAgentId|_],
     length(SortedDistances, Length),
@@ -383,32 +383,31 @@ basic_action_policy(StateId, AgentId, Action) :-
     
     %1. The agent should try to portal to the easiest traversable state if possible  (if allowed)
     (((find_all_portal_traversable_states(StateId, AgentId, Portalables),
-
-    easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
-    length(Portalables, PortalableCount),
-    PortalableCount =\= 0,
+        easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
+        length(Portalables, PortalableCount),
+        PortalableCount =\= 0,
 
     %we want the portalable state to either be the easiest one
-    member(EasiestTargetStateId,Portalables),
+        member(EasiestTargetStateId,Portalables),
 
-    write(Portalables),
+    %write(Portalables),
 
-    history(EasiestTargetStateId, UniverseId, _, _),
+        history(EasiestTargetStateId, UniverseId, _, _),
     
-    Action = [portal,UniverseId]);
+        Action = [portal,UniverseId]);
 
     (find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowables),
-    easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
-    length(PortalToNowables, PortalToNowableCount),
-    PortalToNowableCount =\= 0,
-    
-    write(PortalToNowables),
+        easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
+        length(PortalToNowables, PortalToNowableCount),
+        PortalToNowableCount =\= 0,
+        
+        %write(PortalToNowables),
 
-    member(EasiestTargetStateId,PortalToNowables),
+        member(EasiestTargetStateId,PortalToNowables),
 
-    history(EasiestTargetStateId, UniverseId, _, _),
-    
-    Action = [portal_to_now,UniverseId]));
+        history(EasiestTargetStateId, UniverseId, _, _),
+        
+        Action = [portal_to_now,UniverseId]));
 
     %4. If the agent cannot execute the above actions, it should rest.
     (NearestAgentId =:= -999 -> 
@@ -420,33 +419,31 @@ basic_action_policy(StateId, AgentId, Action) :-
     %right up left down agent until it is in the attack range of the nearest agent.
     %there has to be a nearest agent to do so.
 
-    (NearestAgentId \= -999 -> NearestAgent = Agents.get(NearestAgentId),
-
-    ((Distance> 1, Agent.class = warrior ->
+    (((Distance> 1, Agent.class = warrior ->
     write('got to warrior'),
-    (Agent.x < NearestAgent.x -> Action = [move_right];
-    Agent.y < NearestAgent.y -> Action = [move_up];
-    Agent.x > NearestAgent.x -> Action = [move_left];
-    Agent.y > NearestAgent.y -> Action = [move_down]
+    (Agent.x <  Agents.get(NearestAgentId).x -> Action = [move_right];
+    Agent.y <  Agents.get(NearestAgentId).y -> Action = [move_up];
+    Agent.x >  Agents.get(NearestAgentId).x -> Action = [move_left];
+    Agent.y >  Agents.get(NearestAgentId).y -> Action = [move_down]
     ));
-    (Distance> 15, Agent.class = rogue ->
+    (Distance> 5, Agent.class = rogue ->
     write('got to rogue'),
-    (Agent.x < NearestAgent.x -> Action = [move_right];
-    Agent.y < NearestAgent.y -> Action = [move_up];
-    Agent.x > NearestAgent.x -> Action = [move_left];
-    Agent.y > NearestAgent.y -> Action = [move_down]
+    (Agent.x <  Agents.get(NearestAgentId).x -> Action = [move_right];
+    Agent.y <  Agents.get(NearestAgentId).y -> Action = [move_up];
+    Agent.x >  Agents.get(NearestAgentId).x -> Action = [move_left];
+    Agent.y >  Agents.get(NearestAgentId).y -> Action = [move_down]
     ));
     (Distance> 10,  Agent.class = wizard ->
     write('got to wizard'),
-    (Agent.x < NearestAgent.x -> Action = [move_right];
-    Agent.y < NearestAgent.y -> Action = [move_up];
-    Agent.x > NearestAgent.x -> Action = [move_left];
-    Agent.y > NearestAgent.y -> Action = [move_down]
+    (Agent.x <  Agents.get(NearestAgentId).x -> Action = [move_right];
+    Agent.y <  Agents.get(NearestAgentId).y -> Action = [move_up];
+    Agent.x >  Agents.get(NearestAgentId).x -> Action = [move_left];
+    Agent.y >  Agents.get(NearestAgentId).y -> Action = [move_down]
     ))));
 
 
     %3. Once the agent is in the attack range of the nearest agent, it should attack the nearest agent.
     ((Distance=<1, Agent.class = warrior-> Action = [melee_attack, NearestAgentId]);
-    (Distance=<15,  Agent.class = rogue -> Action = [ranged_attack, NearestAgentId]);
+    (Distance=<5,  Agent.class = rogue -> Action = [ranged_attack, NearestAgentId]);
     (Distance=<10, Agent.class = wizard -> Action = [magic_missile,  NearestAgentId]))).
 
