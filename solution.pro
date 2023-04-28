@@ -354,7 +354,7 @@ basic_action_policy(StateId, AgentId, Action) :-
         find_all_portal_to_now_traversable_states(StateId, AgentId, PortalToNowables),
         easiest_traversable_state(StateId, AgentId, EasiestTargetStateId),
         length(PortalToNowables, PortalToNowableCount),
-        list should not be empty
+        %list should not be empty
         PortalToNowableCount =\= 0,
         
 
