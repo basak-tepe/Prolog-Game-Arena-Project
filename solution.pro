@@ -88,21 +88,22 @@ evaluate_all_distances(Agents, AgentId, NearestAgentId, ShortestDistance) :-
     % Get the nearest agent id and distance
     %SortedDistances = [Distance-NearestAgentId|_],
     length(SortedDistances, Length),
-    (Length>0 -> get_first_element(SortedDistances, ShortestDistance-NearestAgentId); NearestAgentId = 0, ShortestDistance = 0),
-    write('we never get to here'),
-    %Distance = NewDistance,
-    %NearestAgentId = NewNearestAgentId,
-    write('here9').
+    (Length>0 -> get_first_element(SortedDistances, ShortestDistance-NearestAgentId); NearestAgentId = 0, ShortestDistance = 0).
 
 
-nearest_agent(0, 0, 0, 0).
+nearest_agent(0, 0, -999, -999).
 
 nearest_agent(StateId, AgentId, NearestAgentId, Distance) :-
-    %write('here3'),
-    get_agents(StateId, Agents),
-    %write('here4'),
-    evaluate_all_distances(Agents, AgentId, NearestAgentId, Distance),
-    write('here5').
+    state(StateId, Agents, _, TurnOrder),
+    length(TurnOrder, NumAgents),
+
+    (NumAgents =< 1 -> 
+        NearestAgentId = -999,
+        Distance = -999
+    ;
+        NumAgents > 1,
+        evaluate_all_distances(Agents, AgentId, NearestAgentId, Distance)
+    ).
 
 
 
@@ -377,7 +378,6 @@ basic_action_policy(StateId, AgentId, Action) :-
     state(StateId, Agents, _, _),
     Agent = Agents.get(AgentId),
     nearest_agent(StateId, AgentId, NearestAgentId, Distance),
-    NearestAgent = Agents.get(NearestAgentId),
 
     %what does it return next to portal in outputs?
     
@@ -410,10 +410,17 @@ basic_action_policy(StateId, AgentId, Action) :-
     
     Action = [portal_to_now,UniverseId]));
 
-    
+    %4. If the agent cannot execute the above actions, it should rest.
+    (NearestAgentId =:= -999 -> 
+    %write('THE AGENT SHOULD REST'),
+    Action = [rest]);
+
+
     %2. If it cannot travel to the easiest traversable state, it should approach to the nearest different
     %right up left down agent until it is in the attack range of the nearest agent.
-    %manhattan distance no longer applies to compute attack ranges. 
+    %there has to be a nearest agent to do so.
+
+    (NearestAgentId \= -999 -> NearestAgent = Agents.get(NearestAgentId),
 
     ((Distance> 1, Agent.class = warrior ->
     write('got to warrior'),
@@ -435,13 +442,11 @@ basic_action_policy(StateId, AgentId, Action) :-
     Agent.y < NearestAgent.y -> Action = [move_up];
     Agent.x > NearestAgent.x -> Action = [move_left];
     Agent.y > NearestAgent.y -> Action = [move_down]
-    )));
+    ))));
 
 
     %3. Once the agent is in the attack range of the nearest agent, it should attack the nearest agent.
     ((Distance=<1, Agent.class = warrior-> Action = [melee_attack, NearestAgentId]);
     (Distance=<15,  Agent.class = rogue -> Action = [ranged_attack, NearestAgentId]);
-    (Distance=<10, Agent.class = wizard -> Action = [magic_missile,  NearestAgentId]));
+    (Distance=<10, Agent.class = wizard -> Action = [magic_missile,  NearestAgentId]))).
 
-    %4. If the agent cannot execute the above actions, it should rest.
-    Action = [rest]).
